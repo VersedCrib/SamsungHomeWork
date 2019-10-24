@@ -8,22 +8,35 @@ import android.view.View;
 
 public class MyView extends View {
 
+    int N = 10; // количество шариков
+    float[] x  = new float[N];
+    float[] y  = new float[N];
+    float[] vx = new float[N];
+    float[] vy = new float[N];
+
     public MyView(Context context) {
         super(context);
+        for (int i = 0; i < N; i++){
+            x[i] = (float)(Math.random() * 500);
+            y[i] = (float)(Math.random() * 500);
+            vx[i] = (float)(Math.random() * 6 - 3);
+            vy[i] = (float)(Math.random() * 6 - 3);
+        }
     }
 
+    Paint paint = new Paint();
     @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        Paint paint = new Paint();
-        paint.setStrokeWidth(10);
-        int y = 0;
-        while (y < canvas.getHeight()) {
-            paint.setColor(Color.GREEN);
-            canvas.drawLine(0, y, this.getWidth(), y, paint);
-            paint.setColor(Color.RED);
-            canvas.drawLine(y, y, canvas.getWidth(),canvas.getHeight(),paint);
-            y += 30;
+    protected void onDraw(Canvas canvas){
+        // отрисовываем все шарики
+        for (int i = 0; i < N; i++) {
+            canvas.drawCircle(x[i], y[i], 20, paint);
         }
+        // готовим массивы x и у для следущего кадра
+        for (int i = 0; i < N; i++) {
+            x[i] += vx[i];
+            y[i] += vy[i];
+        }
+        //запрашиваем перерисовку
+        invalidate();
     }
 }
