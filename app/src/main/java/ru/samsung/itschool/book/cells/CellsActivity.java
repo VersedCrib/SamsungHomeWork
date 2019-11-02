@@ -3,8 +3,10 @@ package ru.samsung.itschool.book.cells;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.Point;
 import android.os.Bundle;
 
+import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -14,17 +16,19 @@ import android.widget.GridLayout;
 import android.widget.HeaderViewListAdapter;
 
 
+import java.util.concurrent.TimeUnit;
+
 import task.Stub;
 import task.Task;
 
 public class CellsActivity extends Activity implements OnClickListener,
         OnLongClickListener {
 
-    private int WIDTH = 3;
-    private int HEIGHT = 5;
+    private int WIDTH = 4;
+    private int HEIGHT = 6;
     private Button[][] cells;
 
-    Field field = new Field(WIDTH, HEIGHT,2);
+    Field field = new Field(WIDTH, HEIGHT,4);
 
 
     @Override
@@ -37,24 +41,44 @@ public class CellsActivity extends Activity implements OnClickListener,
 
     }
 
+
+
     void generate() {
 
         //Эту строку нужно удалить
         //Task.showMessage(this, "Добавьте код в функцию активности generate() для генерации клеточного поля");
 
+        //auto size cell
+        /*Display display = getWindowManager().getDefaultDisplay();
+        Point size = new Point();
+        display.getSize(size);
+        float width_d = size.x;
+        float height_d = size.y;
 
-       /* int num = 1;
         for (int i = 0; i < HEIGHT; i++)
             for (int j = 0; j < WIDTH; j++) {
-                cells[i][j].setText(num + "");
-                num++;
+                cells[i][j].setHeight((int)(height_d/HEIGHT));
+                cells[i][j].setWidth((int)(width_d/WIDTH));
             }*/
     }
 
     @Override
     public boolean onLongClick(View v) {
-        //Эту строку нужно удалить
-        //Stub.show(this, "Добавьте код в функцию активности onLongClick() - реакцию на долгое нажатие на клетку");
+        Button tappedCell = (Button) v;
+        Integer tappedX = getX(tappedCell);
+        Integer  tappedY = getY(tappedCell);
+
+        if(field.flag) {
+            if (!field.ar_field[tappedY][tappedX].open) {
+                if (!field.ar_field[tappedY][tappedX].lock) {
+                    cells[tappedY][tappedX].setBackgroundColor(Color.GREEN);
+                    field.ar_field[tappedY][tappedX].lock = true;
+                } else {
+                    cells[tappedY][tappedX].setBackgroundColor(Color.WHITE);
+                    field.ar_field[tappedY][tappedX].lock = false;
+                }
+            }
+        }
         return false;
     }
 
@@ -65,10 +89,23 @@ public class CellsActivity extends Activity implements OnClickListener,
         Integer tappedX = getX(tappedCell);
         Integer  tappedY = getY(tappedCell);
 
-
-        cells[tappedY][tappedX].setText(field.count_bombs(tappedY,tappedX).toString());
-
-
+        if(field.flag) {
+            if (!field.ar_field[tappedY][tappedX].lock) {
+                if(!field.ar_field[tappedY][tappedX].bombs) {
+                    cells[tappedY][tappedX].setText(field.ar_field[tappedY][tappedX].num.toString());
+                    field.ar_field[tappedY][tappedX].open = true;
+                    field.open_cell--;
+                    if(field.open_cell == 0){
+                        end();
+                    }
+                } else {
+                    cells[tappedY][tappedX].setText(field.ar_field[tappedY][tappedX].num.toString());
+                    cells[tappedY][tappedX].setBackgroundColor(Color.RED);
+                    field.flag = false;
+                    end(tappedY,tappedX);
+                }
+            }
+        }
     }
 
 	/*
@@ -76,6 +113,27 @@ public class CellsActivity extends Activity implements OnClickListener,
 	 * ==================================================
 	 */
 
+    void end() {
+        for (int i = 0; i < HEIGHT; i++) {
+            for (int j = 0; j < WIDTH; j++) {
+                cells[i][j].setText(field.ar_field[i][j].num.toString());
+                if(field.ar_field[i][j].bombs){
+                    cells[i][j].setBackgroundColor(Color.YELLOW);
+                }
+            }
+        }
+    }
+
+    void end(int y, int x) {
+        for (int i = 0; i < HEIGHT; i++) {
+            for (int j = 0; j < WIDTH; j++) {
+                cells[i][j].setText(field.ar_field[i][j].num.toString());
+                if(field.ar_field[i][j].bombs && !(i == y && j==x) ){
+                    cells[i][j].setBackgroundColor(Color.YELLOW);
+                }
+            }
+        }
+    }
     int getX(View v) {
         return Integer.parseInt(((String) v.getTag()).split(",")[1]);
     }
@@ -101,16 +159,11 @@ public class CellsActivity extends Activity implements OnClickListener,
             }
     }
 
-    public class Cell{
-        boolean bombs ;
-        Integer num ;
-        public Cell(boolean bombs, int num){
-            this.bombs = bombs;
-            this.num = num;
-        }
-    }
+
 
     public class Field{
+        int open_cell;
+        boolean flag = true;
         int width, height;
         int bombs;
         Cell ar_field[][];
@@ -119,23 +172,46 @@ public class CellsActivity extends Activity implements OnClickListener,
             this.width = width;
             this.height = height;
             this.bombs = bombs;
+            this.open_cell =  width * height - bombs;
             this.ar_field = new Cell[height][width];
             enter_cell();
             enter_bombs();
+            enter_num();
         }
 
         private void enter_cell(){
             for(int i = 0; i<this.height; i++){
                 for(int j = 0; j<this.width; j++){
-                    ar_field[i][j] = new Cell(false,0);
+                    ar_field[i][j] = new Cell(false,-1);
                 }
             }
         }
 
-        public void enter_bombs(){
-            ar_field[1][1].bombs = true;
-            ar_field[2][2].bombs = true;
-            //this.ar_field[3][3].bombs = true;
+        private void enter_bombs(){
+            int bombs = this.bombs;
+            int x,y;
+
+            while (bombs!=0){
+                x = rand(this.width-1);
+                y = rand(this.height-1);
+                if(!this.ar_field[y][x].bombs){
+                    this.ar_field[y][x].bombs =true;
+                    bombs--;
+                }
+            }
+
+        }
+
+        private void enter_num(){
+            for(int i = 0; i<=this.height; i++ ){
+                for(int j = 0 ; j<=this.width; j++ ){
+                    if(check(i,j)){
+                        if(!ar_field[i][j].bombs){
+                            ar_field[i][j].num = count_bombs(i,j);
+                        }
+                    }
+                }
+            }
         }
 
         public Integer count_bombs(int y, int x){
@@ -157,10 +233,25 @@ public class CellsActivity extends Activity implements OnClickListener,
         private boolean check(int y, int x){
             boolean b = true;
 
-            if(x>=(width-1)|| y>=(height-1) || x<0 || y<0){
+            if(x>(width-1)|| y>(height-1) || x<0 || y<0){
                 b = false;
             }
             return b;
+        }
+
+        private int rand(int x){
+            return (int)(Math.random()*x);
+        }
+
+        private class Cell{
+            boolean bombs ;
+            Integer num ;
+            boolean lock = false;
+            boolean open = false;
+            public Cell(boolean bombs, int num){
+                this.bombs = bombs;
+                this.num = num;
+            }
         }
 
 
